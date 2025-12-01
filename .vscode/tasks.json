@@ -2,9 +2,9 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Start LLM Servers",
+      "label": "Start MLX Models",
       "type": "shell",
-      "command": "./start_servers.sh",
+      "command": "source .venv/bin/activate && python manage_models.py",
       "isBackground": true,
       "problemMatcher": {
         "pattern": [
@@ -17,8 +17,8 @@
         ],
         "background": {
           "activeOnStart": true,
-          "beginsPattern": "Starting Qwen",
-          "endsPattern": "MLX Servers are running"
+          "beginsPattern": "MLX Local Model Server Manager",
+          "endsPattern": "Servers are running"
         }
       },
       "presentation": {
