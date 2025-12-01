@@ -1,4 +1,6 @@
 #!/bin/bash
+# Use absolute path so this script works from anywhere
+cd /Users/seb/code/llm
 source .venv/bin/activate
 
 echo "Starting Qwen 14B (Smart) on port 8080..."
