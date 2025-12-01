@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start LLM Servers",
+      "type": "shell",
+      "command": "./start_servers.sh",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": [
+          {
+            "regexp": ".",
+            "file": 1,
+            "location": 2,
+            "message": 3
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Starting Qwen",
+          "endsPattern": "MLX Servers are running"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    },
+    {
+      "label": "Stop LLM Servers",
+      "type": "shell",
+      "command": "pkill -f mlx_lm.server",
+      "presentation": {
+        "reveal": "silent"
+      }
+    }
+  ]
+}
