@@ -71,67 +71,123 @@ with st.sidebar:
         st.rerun()
     
     st.markdown("---")
-    st.markdown("**VS Code Config**")
+    st.markdown("### 🔌 Connect Clients")
+    st.markdown("**1. VS Code (Continue)**")
     st.code(f"""
 "apiBase": "http://localhost:9000/v1",
 "model": "{config['models'][0]['repo_id']}"
     """, language="json")
+    
+    st.markdown("**2. Desktop App**")
+    st.markdown("[Download Chatbox AI](https://chatboxai.app)")
+    st.caption("Set API Host to `http://localhost:9000`")
 
-# Main Content: Model Cards
-st.subheader("Managed Models")
+# Tabs for Admin vs Chat
+tab_admin, tab_chat = st.tabs(["⚙️ Server Management", "💬 Web Chat"])
 
-cols = st.columns(len(config["models"]))
+with tab_admin:
+    st.subheader("Managed Models")
 
-for idx, model in enumerate(config["models"]):
-    with cols[idx]:
-        running = is_running(model["port"])
-        status_color = "green" if running else "red"
-        status_text = "ONLINE" if running else "OFFLINE"
-        
-        st.markdown(f"### {model['name']}")
-        st.caption(f"Port: `{model['port']}`")
-        st.markdown(f"Status: :{status_color}[**{status_text}**]")
-        
-        if running:
-            if st.button(f"Stop", key=f"stop_{model['id']}"):
-                stop_server(model["port"])
-                st.rerun()
+    cols = st.columns(len(config["models"]))
+
+    for idx, model in enumerate(config["models"]):
+        with cols[idx]:
+            running = is_running(model["port"])
+            status_color = "green" if running else "red"
+            status_text = "ONLINE" if running else "OFFLINE"
             
-            # Chat Test Interface
-            with st.expander("💬 Quick Chat"):
-                user_input = st.text_input("Message", key=f"input_{model['id']}")
-                if st.button("Send", key=f"send_{model['id']}"):
-                    try:
-                        res = requests.post(
-                            f"http://localhost:{model['port']}/v1/chat/completions",
-                            json={
-                                "model": model["repo_id"],
-                                "messages": [{"role": "user", "content": user_input}],
-                                "stream": False
-                            },
-                            timeout=30
-                        )
-                        if res.status_code == 200:
-                            st.info(res.json()['choices'][0]['message']['content'])
-                        else:
-                            st.error(f"Error: {res.text}")
-                    except Exception as e:
-                        st.error(f"Connection failed: {e}")
+            st.markdown(f"### {model['name']}")
+            st.caption(f"Port: `{model['port']}`")
+            st.markdown(f"Status: :{status_color}[**{status_text}**]")
+            
+            if running:
+                if st.button(f"Stop", key=f"stop_{model['id']}"):
+                    stop_server(model["port"])
+                    st.rerun()
+                
+                # Logs Viewer
+                with st.expander("📄 Logs"):
+                    log_path = os.path.join(LOGS_DIR, f"{model['id']}.log")
+                    if os.path.exists(log_path):
+                        with open(log_path, "r") as f:
+                            lines = f.readlines()[-20:]
+                            st.code("".join(lines), language="text")
+                    else:
+                        st.write("No logs yet.")
+            else:
+                if st.button(f"Start Server", key=f"start_{model['id']}"):
+                    start_server(model)
+                    time.sleep(2) # Give it a moment
+                    st.rerun()
 
-            # Logs Viewer
-            with st.expander("📄 Logs"):
-                log_path = os.path.join(LOGS_DIR, f"{model['id']}.log")
-                if os.path.exists(log_path):
-                    with open(log_path, "r") as f:
-                        lines = f.readlines()[-20:]
-                        st.code("".join(lines), language="text")
-                else:
-                    st.write("No logs yet.")
-        else:
-            if st.button(f"Start Server", key=f"start_{model['id']}"):
-                start_server(model)
-                time.sleep(2) # Give it a moment
-                st.rerun()
+    st.markdown("---")
+    st.caption("Edit `models.yaml` to add more models.")
 
-st.markdown("---")
-st.caption("Edit `models.yaml` to add more models.")
+with tab_chat:
+    # Find running models
+    running_models = [m for m in config["models"] if is_running(m["port"])]
+    
+    if not running_models:
+        st.warning("⚠️ No models are currently running. Please start a server in the 'Server Management' tab.")
+    else:
+        # Model Selector
+        selected_model_name = st.selectbox(
+            "Select Model", 
+            options=[m["name"] for m in running_models],
+            index=0
+        )
+        selected_model = next(m for m in running_models if m["name"] == selected_model_name)
+        
+        # Chat History
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+            
+        # Display Chat
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+                
+        # Chat Input
+        if prompt := st.chat_input("Say something..."):
+            # Add user message
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            # Generate response
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                full_response = ""
+                
+                try:
+                    # Stream response
+                    with requests.post(
+                        f"http://localhost:{selected_model['port']}/v1/chat/completions",
+                        json={
+                            "model": selected_model["repo_id"],
+                            "messages": st.session_state.messages,
+                            "stream": True
+                        },
+                        stream=True,
+                        timeout=60
+                    ) as r:
+                        for line in r.iter_lines():
+                            if line:
+                                line = line.decode('utf-8')
+                                if line.startswith("data: ") and line != "data: [DONE]":
+                                    import json
+                                    try:
+                                        json_str = line[6:] # Skip "data: "
+                                        data = json.loads(json_str)
+                                        if "content" in data['choices'][0]['delta']:
+                                            content = data['choices'][0]['delta']['content']
+                                            full_response += content
+                                            message_placeholder.markdown(full_response + "▌")
+                                    except:
+                                        pass
+                    
+                    message_placeholder.markdown(full_response)
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    
+                except Exception as e:
+                    st.error(f"Error: {e}")
