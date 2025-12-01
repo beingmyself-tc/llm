@@ -2,19 +2,19 @@ models:
   - id: "qwen-14b"
     name: "Qwen 2.5 Coder 14B"
     repo_id: "mlx-community/Qwen2.5-Coder-14B-Instruct-4bit"
-    port: 8080
+    port: 9000
     draft_model: "mlx-community/Qwen2.5-Coder-0.5B-Instruct-4bit"
     description: "Smartest coding model. Use for complex tasks."
 
   - id: "qwen-7b"
     name: "Qwen 2.5 Coder 7B"
     repo_id: "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
-    port: 8081
+    port: 9001
     draft_model: "mlx-community/Qwen2.5-Coder-0.5B-Instruct-4bit"
     description: "Fast coding model. Use for autocomplete and quick chat."
 
   - id: "llama-3-8b"
     name: "Llama 3.1 8B"
     repo_id: "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
-    port: 8082
+    port: 9002
     description: "General purpose model. Good for non-coding tasks."

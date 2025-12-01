@@ -73,7 +73,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**VS Code Config**")
     st.code(f"""
-"apiBase": "http://localhost:8080/v1",
+"apiBase": "http://localhost:9000/v1",
 "model": "{config['models'][0]['repo_id']}"
     """, language="json")
 
