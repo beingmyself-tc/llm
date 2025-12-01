@@ -7,6 +7,7 @@ import time
 import requests
 import pandas as pd
 from datetime import datetime
+from huggingface_hub import HfApi
 
 st.set_page_config(page_title="MLX Model Admin", layout="wide", page_icon="🤖")
 
@@ -83,7 +84,7 @@ with st.sidebar:
     st.caption("Set API Host to `http://localhost:9000`")
 
 # Tabs for Admin vs Chat
-tab_admin, tab_chat = st.tabs(["⚙️ Server Management", "💬 Web Chat"])
+tab_admin, tab_chat, tab_add = st.tabs(["⚙️ Server Management", "💬 Web Chat", "➕ Add Model"])
 
 with tab_admin:
     st.subheader("Managed Models")
@@ -191,3 +192,61 @@ with tab_chat:
                     
                 except Exception as e:
                     st.error(f"Error: {e}")
+
+with tab_add:
+    st.header("Add New MLX Model")
+    
+    # Search HF
+    search_query = st.text_input("Search Hugging Face (tag: mlx)", value="mlx-community")
+    
+    @st.cache_data(ttl=300)
+    def search_models(query):
+        api = HfApi()
+        models = api.list_models(search=query, filter="mlx", sort="downloads", direction=-1, limit=50)
+        return [m.modelId for m in models]
+
+    if search_query:
+        try:
+            model_options = search_models(search_query)
+            selected_repo = st.selectbox("Select Repository", model_options)
+            
+            if selected_repo:
+                st.markdown("---")
+                st.subheader("Configuration")
+                
+                with st.form("add_model_form"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        # Default ID: clean up the repo name
+                        default_id = selected_repo.split("/")[-1].lower().replace(".", "-")
+                        new_id = st.text_input("ID (slug)", value=default_id)
+                        new_name = st.text_input("Display Name", value=selected_repo.split("/")[-1])
+                    with col2:
+                        # Suggest next available port
+                        used_ports = [m["port"] for m in config["models"]]
+                        next_port = max(used_ports) + 1 if used_ports else 9000
+                        new_port = st.number_input("Port", value=next_port, step=1)
+                        new_desc = st.text_input("Description", value="Imported from Hugging Face")
+                    
+                    submitted = st.form_submit_button("Add Model")
+                    
+                    if submitted:
+                        new_model = {
+                            "id": new_id,
+                            "name": new_name,
+                            "repo_id": selected_repo,
+                            "port": int(new_port),
+                            "description": new_desc
+                        }
+                        
+                        # Append and Save
+                        config["models"].append(new_model)
+                        with open(MODELS_FILE, "w") as f:
+                            yaml.dump(config, f, sort_keys=False)
+                        
+                        st.success(f"Added {new_name}! Refreshing...")
+                        time.sleep(1)
+                        st.rerun()
+        except Exception as e:
+            st.error(f"Failed to search Hugging Face: {e}")
+
